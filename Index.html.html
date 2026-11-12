@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Anotador de Rummikub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --table:#24506b; --table-2:#1d4259; --tile:#fbf6e9; --tile-edge:#e3d9bf;
+  --ink:#1f2328; --muted:#5e6670; --red:#c8322b; --blue:#1f5fbf; --amber:#d9822b;
+  --on-table:#f3efe3; --on-table-muted:#b7c8d4; --good:#2f8a4e; --bad:#c8322b;
+  --panel:#fbf6e9;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --table:#14303f; --table-2:#0f2633; --tile:#efe7d2; --tile-edge:#c9bd9c;
+    --on-table:#ece7d9; --on-table-muted:#93a9b7; --panel:#1c2b34; --ink:#1f2328;
+  }
+}
+:root[data-theme="dark"]{
+  --table:#14303f; --table-2:#0f2633; --tile:#efe7d2; --tile-edge:#c9bd9c;
+  --on-table:#ece7d9; --on-table-muted:#93a9b7; --panel:#1c2b34;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--table);
+  background-image:radial-gradient(circle at 50% 0%, var(--table) 0%, var(--table-2) 100%);
+  color:var(--on-table);font-family:Rubik,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.45}
+main{max-width:560px;margin:0 auto;padding:18px 16px 40px}
+h1{font-weight:800;font-size:1.5rem;margin:6px 0 2px;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.sub{color:var(--on-table-muted);margin:0 0 18px;font-size:.95rem}
+button{font:inherit;cursor:pointer;border:0}
+button:focus-visible,input:focus-visible{outline:3px solid #ffd166;outline-offset:2px}
+.tile{background:var(--tile);color:var(--ink);border-radius:10px;
+  box-shadow:0 3px 0 var(--tile-edge),0 6px 14px rgba(0,0,0,.25)}
+.mini{display:inline-grid;place-items:center;width:26px;height:34px;border-radius:5px;font-weight:800;font-size:.95rem;
+  background:var(--tile);box-shadow:0 2px 0 var(--tile-edge)}
+/* Marcador */
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px;margin-bottom:20px}
+.pl{padding:14px 12px 12px;text-align:center;position:relative}
+.pl .name{font-weight:500;color:var(--muted);font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl .total{font-weight:800;font-size:2.4rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.pl:nth-child(4n+1) .total{color:var(--red)} .pl:nth-child(4n+2) .total{color:var(--blue)}
+.pl:nth-child(4n+3) .total{color:var(--amber)} .pl:nth-child(4n+4) .total{color:var(--ink)}
+.pl .crown{position:absolute;top:-10px;right:-6px;background:#ffd166;color:#4a3500;font-size:.75rem;font-weight:700;
+  padding:3px 8px;border-radius:99px;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.primary{display:block;width:100%;padding:16px;border-radius:14px;background:#ffd166;color:#3d2c00;font-weight:700;font-size:1.1rem;
+  box-shadow:0 3px 0 #c99a2e}
+.primary:active{transform:translateY(2px);box-shadow:0 1px 0 #c99a2e}
+.ghost{background:transparent;color:var(--on-table-muted);padding:10px 12px;border-radius:10px;text-decoration:underline;text-underline-offset:3px}
+.row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+/* Historial */
+h2{font-size:1.05rem;font-weight:700;margin:28px 0 10px}
+.hist{overflow-x:auto;border-radius:12px;background:rgba(0,0,0,.18)}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.95rem}
+th,td{padding:9px 10px;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;color:var(--on-table-muted)}
+thead th{font-weight:500;color:var(--on-table-muted);border-bottom:1px solid rgba(255,255,255,.15)}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.07)}
+tbody tr:last-child{border-bottom:0}
+td.pos{color:#8fe3a8} td.neg{color:#ff9d94}
+td button{background:none;color:var(--on-table-muted);padding:2px 6px;font-size:.85rem}
+.empty{color:var(--on-table-muted);padding:16px;text-align:center}
+/* Panel */
+.sheet{position:fixed;inset:0;background:rgba(5,15,22,.55);display:none;align-items:flex-end;justify-content:center;z-index:10}
+.sheet.open{display:flex}
+.card{background:var(--panel);color:var(--ink);width:100%;max-width:560px;max-height:100%;overflow-y:auto;
+  border-radius:20px 20px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .card{color:var(--on-table)}}
+:root[data-theme="dark"] .card{color:var(--on-table)}
+.card h3{margin:0 0 4px;font-size:1.2rem}
+.card .hint{color:var(--muted);margin:0 0 14px;font-size:.92rem}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .card .hint{color:var(--on-table-muted)}}
+.choices{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.choice{padding:11px 14px;border-radius:12px;background:rgba(127,127,127,.15);color:inherit;font-weight:500}
+.choice[aria-pressed="true"]{background:var(--blue);color:#fff}
+.who{margin:18px 0;padding:14px;border-radius:14px;background:rgba(127,127,127,.1)}
+.who-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.who-head b{font-size:1.05rem}
+.who-head span{font-weight:800;font-size:1.3rem;font-variant-numeric:tabular-nums}
+.pad{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+.pad button{aspect-ratio:3/4;font-weight:800;font-size:1.1rem;color:var(--ink);border-radius:7px;padding:0;
+  background:var(--tile);box-shadow:0 3px 0 var(--tile-edge)}
+.pad button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--tile-edge)}
+.pad button.j{color:var(--red);font-size:1.25rem}
+.rack{display:flex;flex-wrap:wrap;gap:6px;min-height:38px;margin-top:12px;padding:6px;border-radius:8px;background:#b58a55;
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.25)}
+.rack .mini{cursor:pointer;color:var(--ink)} .rack .mini.j{color:var(--red);width:auto;padding:0 6px}
+.rack .ph{color:#f5e7cf;font-size:.85rem;align-self:center;padding:0 4px}
+.preview{margin:16px 0;padding:12px 14px;border-radius:12px;border:2px dashed rgba(127,127,127,.4)}
+.preview div{display:flex;justify-content:space-between;padding:3px 0;font-variant-numeric:tabular-nums}
+.actions{display:flex;gap:10px;margin-top:6px}
+.actions .primary{flex:1}
+.secondary{padding:16px;border-radius:14px;background:rgba(127,127,127,.18);color:inherit;font-weight:500}
+input[type=text]{width:100%;padding:13px 14px;border-radius:12px;border:2px solid rgba(127,127,127,.35);background:transparent;
+  color:inherit;font:inherit;font-size:1.05rem}
+.names{display:grid;gap:10px;margin-bottom:12px}
+.err{color:var(--bad);font-weight:500;min-height:1.4em;margin:6px 0}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="card" id="card"></div></div>
+
+<script>
+const KEY = 'rummikub-anotador-v1';
+let S = load() || { players: [], rounds: [] };
+let R = null; // ronda en edición
+
+function load(){ try{ const v = localStorage.getItem(KEY); return v ? JSON.parse(v) : null; }catch(e){ return null; } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const val = t => t === 'J' ? 30 : t;
+const sum = a => a.reduce((x,y)=>x+val(y),0);
+const fmt = n => n > 0 ? '+'+n : String(n);
+const totals = () => S.players.map((_,i)=>S.rounds.reduce((a,r)=>a+r.scores[i],0));
+
+function render(){
+  const app = $('#app');
+  if(!S.players.length){ app.innerHTML = setupHTML(); bindSetup(); return; }
+  const t = totals(), max = Math.max(...t), hasRounds = S.rounds.length>0;
+  app.innerHTML = `
+    <h1><span class="mini" style="color:var(--red)">R</span> Anotador de Rummikub</h1>
+    <p class="sub">${hasRounds ? `Van ${S.rounds.length} ronda${S.rounds.length>1?'s':''}` : 'Todavía no se jugó ninguna ronda'}</p>
+    <section class="board">
+      ${S.players.map((p,i)=>`<div class="pl tile">${hasRounds && t[i]===max ? '<span class="crown">Va ganando</span>':''}
+        <div class="name">${esc(p)}</div><div class="total">${fmt(t[i])}</div></div>`).join('')}
+    </section>
+    <button class="primary" id="newRound">Anotar ronda ${S.rounds.length+1}</button>
+    <h2>Rondas</h2>
+    <div class="hist">${hasRounds ? `<table><thead><tr><th>#</th>${S.players.map(p=>`<th>${esc(p)}</th>`).join('')}<th></th></tr></thead><tbody>
+      ${S.rounds.map((r,k)=>`<tr><td>${k+1}${r.type==='pozo'?' · pozo':''}</td>${r.scores.map(s=>`<td class="${s>0?'pos':s<0?'neg':''}">${fmt(s)}</td>`).join('')}
+        <td><button data-del="${k}" aria-label="Borrar ronda ${k+1}">Borrar</button></td></tr>`).join('')}
+      </tbody></table>` : `<div class="empty">Cuando alguien cierre, tocá “Anotar ronda”.</div>`}</div>
+    <div class="row">
+      <button class="ghost" id="restart">Nueva partida, mismos jugadores</button>
+      <button class="ghost" id="reset">Cambiar jugadores</button>
+    </div>`;
+  $('#newRound').onclick = openRound;
+  app.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+    const k=+b.dataset.del; if(confirm(`¿Borrar la ronda ${k+1}?`)){ S.rounds.splice(k,1); save(); render(); }
+  });
+  $('#restart').onclick=()=>{ if(confirm('¿Borrar todas las rondas y empezar de cero?')){ S.rounds=[]; save(); render(); } };
+  $('#reset').onclick=()=>{ if(confirm('¿Borrar jugadores y rondas?')){ S={players:[],rounds:[]}; save(); render(); } };
+}
+
+function setupHTML(){
+  return `<h1><span class="mini" style="color:var(--red)">R</span> Anotador de Rummikub</h1>
+  <p class="sub">Anotá los nombres de 2 a 4 jugadores.</p>
+  <div class="names">${[0,1,2,3].map(i=>`<input type="text" maxlength="14" placeholder="Jugador ${i+1}${i>1?' (opcional)':''}" aria-label="Jugador ${i+1}">`).join('')}</div>
+  <div class="err" id="err"></div>
+  <button class="primary" id="start">Empezar partida</button>`;
+}
+function bindSetup(){
+  $('#start').onclick=()=>{
+    const names=[...document.querySelectorAll('.names input')].map(i=>i.value.trim()).filter(Boolean);
+    if(names.length<2){ $('#err').textContent='Hacen falta al menos 2 jugadores.'; return; }
+    if(new Set(names.map(n=>n.toLowerCase())).size!==names.length){ $('#err').textContent='Hay dos nombres iguales.'; return; }
+    S={players:names,rounds:[]}; save(); render();
+  };
+}
+
+/* ---------- Ronda ---------- */
+function openRound(){ R={ mode:null, winner:null, racks:S.players.map(()=>[]) }; drawRound(); $('#sheet').classList.add('open'); }
+function closeRound(){ $('#sheet').classList.remove('open'); R=null; }
+
+function compute(){
+  const n=S.players.length, tot=R.racks.map(sum);
+  if(R.mode==='cerro'){
+    const sc=tot.map((t,i)=>i===R.winner?0:-t);
+    sc[R.winner]=-sc.reduce((a,b)=>a+b,0);
+    return {sc, w:R.winner};
+  }
+  const min=Math.min(...tot), w=tot.indexOf(min);
+  const sc=tot.map((t,i)=>i===w?0:-(t-min));
+  sc[w]=-sc.reduce((a,b)=>a+b,0);
+  return {sc, w, tie: tot.filter(t=>t===min).length>1};
+}
+
+function drawRound(){
+  const P=S.players, card=$('#card');
+  let h=`<h3>Ronda ${S.rounds.length+1}</h3><p class="hint">¿Quién se quedó sin fichas?</p><div class="choices">
+    ${P.map((p,i)=>`<button class="choice" data-w="${i}" aria-pressed="${R.mode==='cerro'&&R.winner===i}">${esc(p)}</button>`).join('')}
+    <button class="choice" data-pozo aria-pressed="${R.mode==='pozo'}">Nadie: se terminó el pozo</button></div>`;
+  if(R.mode){
+    h+=`<p class="hint">${R.mode==='cerro' ? 'Tocá las fichas que le quedaron a cada uno. Para sacar una, tocala en el atril.' : 'Tocá las fichas que le quedaron a todos. Gana quien sume menos.'}</p>`;
+    P.forEach((p,i)=>{
+      if(R.mode==='cerro'&&i===R.winner) return;
+      h+=`<div class="who"><div class="who-head"><b>${esc(p)}</b><span>${sum(R.racks[i])}</span></div>
+        <div class="pad">${[1,2,3,4,5,6,7,8,9,10,11,12,13].map(v=>`<button data-add="${i}" data-v="${v}" aria-label="Sumar ${v}">${v}</button>`).join('')}
+        <button class="j" data-add="${i}" data-v="J" aria-label="Sumar comodín, 30 puntos">☺</button></div>
+        <div class="rack">${R.racks[i].length ? R.racks[i].map((t,k)=>`<span class="mini ${t==='J'?'j':''}" role="button" tabindex="0" data-rm="${i}" data-k="${k}" aria-label="Sacar ${t==='J'?'comodín':t}">${t==='J'?'☺ 30':t}</span>`).join('') : '<span class="ph">Sin fichas</span>'}</div></div>`;
+    });
+    const {sc,w,tie}=compute();
+    h+=`<div class="preview">${P.map((p,i)=>`<div><span>${esc(p)}${i===w?' (gana)':''}</span><b style="color:${sc[i]>0?'var(--good)':sc[i]<0?'var(--bad)':'inherit'}">${fmt(sc[i])}</b></div>`).join('')}
+      ${tie?'<div style="color:var(--bad)">Hay empate en el menor puntaje: queda como ganador el primero de la lista.</div>':''}</div>`;
+  }
+  h+=`<div class="actions"><button class="secondary" id="cancel">Cancelar</button>${R.mode?'<button class="primary" id="saveR">Guardar ronda</button>':''}</div>`;
+  card.innerHTML=h;
+
+  card.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ R.mode='cerro'; R.winner=+b.dataset.w; R.racks[R.winner]=[]; drawRound(); });
+  const pz=card.querySelector('[data-pozo]'); pz.onclick=()=>{ R.mode='pozo'; R.winner=null; drawRound(); };
+  card.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{ const v=b.dataset.v; R.racks[+b.dataset.add].push(v==='J'?'J':+v); keep(()=>drawRound()); });
+  card.querySelectorAll('[data-rm]').forEach(b=>{ const f=()=>{ R.racks[+b.dataset.rm].splice(+b.dataset.k,1); keep(()=>drawRound()); };
+    b.onclick=f; b.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();f();} }; });
+  $('#cancel').onclick=closeRound;
+  const sv=$('#saveR'); if(sv) sv.onclick=()=>{
+    const {sc,w}=compute();
+    if(R.mode==='pozo' && R.racks.every(r=>!r.length)){ alert('Cargá las fichas que le quedaron a cada uno.'); return; }
+    S.rounds.push({type:R.mode, winner:w, racks:R.racks, scores:sc}); save(); closeRound(); render();
+  };
+}
+function keep(fn){ const c=$('#card'), y=c.scrollTop; fn(); c.scrollTop=y; }
+
+$('#sheet').addEventListener('click',e=>{ if(e.target.id==='sheet') closeRound(); });
+render();
+</script>
+</body>
+</html>
